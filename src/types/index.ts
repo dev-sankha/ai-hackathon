@@ -4,6 +4,16 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   aiMode?: "gemini" | "openai" | "restapi";
+  chartData?: {
+    symbol: string;
+    name: string;
+    showChart: boolean;
+    timeframe?: string;
+    data?: Array<{ date: string; price: number }>;
+    currentPrice?: number;
+    change?: number;
+    changePercent?: number;
+  };
 }
 
 export interface QueryIntent {

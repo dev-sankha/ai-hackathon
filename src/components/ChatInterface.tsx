@@ -5,6 +5,7 @@ import { Send, Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { ChatMessage } from '@/types';
 import { useAI } from '@/context/AIContext';
+import StockChart from './StockChart';
 
 export default function ChatInterface() {
   const { aiMode } = useAI();
@@ -157,45 +158,59 @@ export default function ChatInterface() {
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isClient && messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] p-4 rounded-lg ${
-                message.type === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-900 border border-gray-200 shadow-sm'
-              }`}
-            >
-              {message.type === 'assistant' ? (
-                <div className="space-y-2">
-                  <div className="prose prose-sm max-w-none">
-                    <div 
-                      className="whitespace-pre-wrap leading-relaxed"
-                      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
-                    >
-                      {message.content}
+          <div key={message.id} className="space-y-3">
+            <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[80%] p-4 rounded-lg ${
+                  message.type === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-900 border border-gray-200 shadow-sm'
+                }`}
+              >
+                {message.type === 'assistant' ? (
+                  <div className="space-y-2">
+                    <div className="prose prose-sm max-w-none">
+                      <div 
+                        className="whitespace-pre-wrap leading-relaxed"
+                        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                      >
+                        {message.content}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200">
+                      <button
+                        onClick={() => speakText(message.content)}
+                        className={`flex items-center gap-1 text-sm px-3 py-1 rounded-full transition-colors ${
+                          isSpeaking 
+                            ? 'text-red-600 hover:text-red-800 bg-red-50' 
+                            : 'text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Volume2 className="w-4 h-4" />
+                        {isSpeaking ? 'Stop' : 'Listen'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200">
-                    <button
-                      onClick={() => speakText(message.content)}
-                      className={`flex items-center gap-1 text-sm px-3 py-1 rounded-full transition-colors ${
-                        isSpeaking 
-                          ? 'text-red-600 hover:text-red-800 bg-red-50' 
-                          : 'text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Volume2 className="w-4 h-4" />
-                      {isSpeaking ? 'Stop' : 'Listen'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              )}
+                ) : (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
+              </div>
             </div>
+            
+            {/* Chart Display */}
+            {message.chartData && message.chartData.showChart && message.chartData.data && (
+              <div className="max-w-full">
+                <StockChart
+                  symbol={message.chartData.symbol}
+                  name={message.chartData.name}
+                  data={message.chartData.data}
+                  currentPrice={message.chartData.currentPrice || 0}
+                  change={message.chartData.change || 0}
+                  changePercent={message.chartData.changePercent || 0}
+                  timeframe={message.chartData.timeframe || '3 Months'}
+                />
+              </div>
+            )}
           </div>
         ))}
         {!isClient && (
@@ -265,10 +280,16 @@ export default function ChatInterface() {
             Asset Allocation
           </button>
           <button
-            onClick={() => setInputValue('Show me portfolio trends')}
-            className="px-3 py-2 text-sm bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 hover:border-orange-300 rounded-full transition-colors font-medium"
+            onClick={() => setInputValue('How is TCS performing?')}
+            className="px-3 py-2 text-sm bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 rounded-full transition-colors font-medium"
           >
-            Portfolio Trends
+            📊 TCS Performance
+          </button>
+          <button
+            onClick={() => setInputValue('Show me Reliance stock chart')}
+            className="px-3 py-2 text-sm bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 rounded-full transition-colors font-medium"
+          >
+            📈 Reliance Chart
           </button>
         </div>
       </div>

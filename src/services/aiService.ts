@@ -68,6 +68,134 @@ export class AIService {
   }
 
   /**
+   * Generate stock data for charts
+   */
+  generateStockData(
+    symbol: string,
+    days: number
+  ): Array<{ date: string; price: number }> {
+    const stockInfo: Record<
+      string,
+      { basePrice: number; name: string; trend: number }
+    > = {
+      TCS: { basePrice: 4250, name: "Tata Consultancy Services", trend: 1.015 },
+      RELIANCE: {
+        basePrice: 2750,
+        name: "Reliance Industries Limited",
+        trend: 1.012,
+      },
+      INFY: { basePrice: 1850, name: "Infosys Limited", trend: 1.018 },
+      AAPL: { basePrice: 175, name: "Apple Inc.", trend: 1.02 },
+      GOOGL: { basePrice: 140, name: "Alphabet Inc.", trend: 1.016 },
+      MSFT: { basePrice: 400, name: "Microsoft Corporation", trend: 1.014 },
+      TSLA: { basePrice: 250, name: "Tesla Inc.", trend: 1.025 },
+    };
+
+    const stock = stockInfo[symbol] || {
+      basePrice: 100,
+      name: "Unknown Stock",
+      trend: 1.01,
+    };
+    const data = [];
+
+    for (let i = days; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+
+      // Generate realistic price movements with trends and volatility
+      const dailyVariation = (Math.random() - 0.5) * 0.08; // ±4% daily variation
+      const weeklyPattern = Math.sin((days - i) / 7) * 0.02; // Weekly patterns
+      const trendFactor = Math.pow(stock.trend, (days - i) / days);
+      const price =
+        stock.basePrice * (1 + dailyVariation + weeklyPattern) * trendFactor;
+
+      data.push({
+        date: date.toISOString().split("T")[0],
+        price: Math.round(price * 100) / 100,
+      });
+    }
+
+    return data;
+  }
+
+  /**
+   * Detect if query needs chart visualization
+   */
+  detectChartRequirements(query: string): {
+    symbol?: string;
+    timeframe?: string;
+    showChart: boolean;
+  } {
+    const queryLower = query.toLowerCase();
+
+    // Stock symbols to detect
+    const stockPatterns: Record<string, string[]> = {
+      TCS: ["tcs", "tata consultancy", "tata consulting"],
+      RELIANCE: ["reliance", "ril", "reliance industries"],
+      INFY: ["infosys", "infy", "info"],
+      AAPL: ["apple", "aapl"],
+      GOOGL: ["google", "alphabet", "googl"],
+      MSFT: ["microsoft", "msft"],
+      TSLA: ["tesla", "tsla"],
+    };
+
+    // Performance keywords
+    const performanceKeywords = [
+      "perform",
+      "performance",
+      "doing",
+      "trend",
+      "price",
+      "stock",
+      "chart",
+      "graph",
+      "visual",
+      "show",
+      "display",
+      "analysis",
+    ];
+
+    // Timeframe detection
+    const timeframePatterns: Record<string, string[]> = {
+      "1 Month": ["month", "30 days", "1m"],
+      "3 Months": ["3 month", "90 days", "3m", "quarter"],
+      "6 Months": ["6 month", "180 days", "6m", "half year"],
+      "1 Year": ["year", "12 month", "1y", "annual"],
+    };
+
+    // Find matching stock
+    let detectedSymbol: string | undefined;
+    for (const [symbol, patterns] of Object.entries(stockPatterns)) {
+      if (patterns.some((pattern) => queryLower.includes(pattern))) {
+        detectedSymbol = symbol;
+        break;
+      }
+    }
+
+    // Find matching timeframe (default to 3 months)
+    let detectedTimeframe = "3 Months";
+    for (const [timeframe, patterns] of Object.entries(timeframePatterns)) {
+      if (patterns.some((pattern) => queryLower.includes(pattern))) {
+        detectedTimeframe = timeframe;
+        break;
+      }
+    }
+
+    // Determine if chart should be shown
+    const hasPerformanceKeyword = performanceKeywords.some((keyword) =>
+      queryLower.includes(keyword)
+    );
+
+    const showChart = !!(detectedSymbol && hasPerformanceKeyword);
+
+    return {
+      symbol: detectedSymbol,
+      timeframe: detectedTimeframe,
+      showChart,
+    };
+  }
+
+  /**
    * Main entry point for generating AI responses
    */
   async generateResponse(
@@ -97,6 +225,10 @@ export class AIService {
         }
       }
 
+      // Detect chart requirements
+      const chartRequirements = this.detectChartRequirements(query);
+      console.log("📊 Chart requirements:", chartRequirements);
+
       // Build portfolio context
       const portfolioContext = this.buildPortfolioContext();
 
@@ -110,12 +242,57 @@ export class AIService {
 
       console.log("✅ Response generated:", content.substring(0, 100) + "...");
 
+      // Build chart data if required
+      let chartData = undefined;
+      if (chartRequirements.showChart && chartRequirements.symbol) {
+        const days =
+          chartRequirements.timeframe === "1 Month"
+            ? 30
+            : chartRequirements.timeframe === "6 Months"
+            ? 180
+            : chartRequirements.timeframe === "1 Year"
+            ? 365
+            : 90;
+
+        const stockData = this.generateStockData(
+          chartRequirements.symbol,
+          days
+        );
+        const currentPrice = stockData[stockData.length - 1].price;
+        const previousPrice =
+          stockData[stockData.length - 2]?.price || currentPrice;
+        const change = currentPrice - previousPrice;
+        const changePercent = (change / previousPrice) * 100;
+
+        const stockNames: Record<string, string> = {
+          TCS: "Tata Consultancy Services",
+          RELIANCE: "Reliance Industries Limited",
+          INFY: "Infosys Limited",
+          AAPL: "Apple Inc.",
+          GOOGL: "Alphabet Inc.",
+          MSFT: "Microsoft Corporation",
+          TSLA: "Tesla Inc.",
+        };
+
+        chartData = {
+          symbol: chartRequirements.symbol,
+          name: stockNames[chartRequirements.symbol] || "Unknown Company",
+          data: stockData,
+          currentPrice,
+          change,
+          changePercent,
+          timeframe: chartRequirements.timeframe || "3 Months",
+          showChart: true,
+        };
+      }
+
       return {
         id,
         type: "assistant",
         content,
         timestamp,
         aiMode: this.currentProvider.name as AIMode,
+        chartData,
       };
     } catch (error) {
       console.error("❌ Error generating AI response:", error);
