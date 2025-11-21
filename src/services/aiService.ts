@@ -1,22 +1,72 @@
 import { ChatMessage, QueryIntent } from "@/types";
 import { mockPortfolioSummary, mockAssets } from "@/data/mockPortfolio";
+import {
+  AIProvider,
+  GeminiProvider,
+  OpenAIProvider,
+  PatternProvider,
+  RestAPIProvider,
+} from "./ai-providers";
+
+// Available AI providers
+const PROVIDERS: Record<string, AIProvider> = {
+  gemini: new GeminiProvider(),
+  openai: new OpenAIProvider(),
+  restapi: new RestAPIProvider(),
+  pattern: new PatternProvider(),
+};
+
+// Set your default provider here
+const DEFAULT_PROVIDER = "gemini";
+
+export type AIMode = "gemini" | "openai" | "restapi" | "pattern";
 
 export class AIService {
-  private mode: "pattern" | "gemini" = "gemini";
+  private currentProvider: AIProvider;
 
-  /**
-   * Set the AI mode for responses
-   */
-  setMode(mode: "pattern" | "gemini"): void {
-    console.log("🔄 AI Mode changed:", mode);
-    this.mode = mode;
+  constructor() {
+    // Initialize with default provider
+    this.currentProvider = PROVIDERS[DEFAULT_PROVIDER];
+    console.log(
+      `🤖 AI Service initialized with ${this.currentProvider.displayName}`
+    );
   }
 
   /**
-   * Get the current AI mode
+   * Set the AI provider
    */
-  getMode(): "pattern" | "gemini" {
-    return this.mode;
+  setMode(mode: AIMode): void {
+    if (!PROVIDERS[mode]) {
+      console.error(`❌ Unknown AI provider: ${mode}`);
+      return;
+    }
+
+    this.currentProvider = PROVIDERS[mode];
+    console.log(
+      `🔄 AI Provider changed to: ${this.currentProvider.displayName}`
+    );
+  }
+
+  /**
+   * Get the current AI provider name
+   */
+  getMode(): AIMode {
+    return this.currentProvider.name as AIMode;
+  }
+
+  /**
+   * Get all available providers
+   */
+  getAvailableProviders(): Array<{
+    name: string;
+    displayName: string;
+    configured: boolean;
+  }> {
+    return Object.values(PROVIDERS).map((provider) => ({
+      name: provider.name,
+      displayName: provider.displayName,
+      configured: provider.isConfigured(),
+    }));
   }
 
   /**
@@ -32,159 +82,74 @@ export class AIService {
     console.log("🚀 AIService.generateResponse called");
     console.log("📝 Query:", query);
     console.log("🎯 Intent:", intent);
-    console.log("⚙️ Current AI Mode:", this.mode);
+    console.log("⚙️ Current Provider:", this.currentProvider.displayName);
 
     try {
-      if (this.mode === "gemini") {
-        console.log("🔮 Using Google Gemini AI...");
-        const response = await this.generateGeminiResponse(
-          intent,
-          query,
-          id,
-          timestamp
+      // Check if provider is configured
+      if (!this.currentProvider.isConfigured()) {
+        console.warn(
+          `⚠️ ${this.currentProvider.displayName} not configured, falling back to Pattern Matching`
         );
-        console.log(
-          "✅ Gemini response generated:",
-          response.content.substring(0, 100) + "..."
-        );
-        return response;
-      } else {
-        console.log("🧩 Using Pattern Matching AI...");
-        const response = this.generatePatternResponse(
-          intent,
-          query,
-          id,
-          timestamp
-        );
-        console.log(
-          "✅ Pattern response generated:",
-          response.content.substring(0, 100) + "..."
-        );
-        return response;
+        this.currentProvider = PROVIDERS.pattern;
       }
-    } catch (error) {
-      console.error("❌ Error generating AI response:", error);
 
-      // Fallback to pattern matching if Gemini fails
-      console.log("🔄 Falling back to pattern matching...");
-      const fallbackResponse = this.generatePatternResponse(
-        intent,
-        query,
-        id,
-        timestamp
-      );
-      fallbackResponse.content =
-        "I encountered an issue with the AI service. Here's what I found using pattern matching: " +
-        fallbackResponse.content;
-      return fallbackResponse;
-    }
-  }
-
-  /**
-   * PATTERN MATCHING MODE
-   * Rules-based responses with predefined patterns
-   */
-  private generatePatternResponse(
-    intent: QueryIntent,
-    originalQuery: string,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    console.log("🧩 Generating pattern-based response...");
-    const response = this.generatePatternBasedResponse(intent, id, timestamp);
-    response.aiMode = "pattern";
-    console.log("✅ Pattern response ready");
-    return response;
-  }
-
-  /**
-   * GOOGLE GEMINI MODE
-   * Real AI with natural language understanding
-   */
-  private async generateGeminiResponse(
-    intent: QueryIntent,
-    originalQuery: string,
-    id: string,
-    timestamp: Date
-  ): Promise<ChatMessage> {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-    console.log("🔐 Checking Gemini API key...", apiKey ? "Found" : "Missing");
-
-    if (!apiKey) {
-      console.error("❌ Gemini API key not configured");
-      throw new Error("Gemini API key not configured");
-    }
-
-    console.log("📦 Loading Gemini AI SDK...");
-
-    try {
-      // Import Gemini AI (dynamic import for client-side)
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-      });
-
-      console.log("🏗️ Building portfolio context...");
-
-      // Build context with portfolio data
+      // Build portfolio context
       const portfolioContext = this.buildPortfolioContext();
 
-      console.log("✨ Generating Gemini response...");
+      // Generate response using current provider
+      console.log(`🔮 Using ${this.currentProvider.displayName}...`);
+      const content = await this.currentProvider.generateResponse(
+        query,
+        intent,
+        portfolioContext
+      );
 
-      const prompt = `
-You are an AI portfolio assistant. Analyze this portfolio and answer the user's question.
-
-PORTFOLIO DATA:
-${portfolioContext}
-
-USER QUESTION: ${originalQuery}
-
-IMPORTANT GUIDELINES:
-- Be helpful and conversational
-- Use specific numbers from the portfolio data
-- Provide descriptive analysis only (no investment advice)
-- Keep responses concise (2-3 sentences max)
-- Focus on factual performance metrics
-- Use a friendly, professional tone
-
-Response:`;
-
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const content = response.text();
-
-      console.log("✅ Gemini response generated successfully");
+      console.log("✅ Response generated:", content.substring(0, 100) + "...");
 
       return {
         id,
         type: "assistant",
-        content: content.trim(),
+        content,
         timestamp,
-        aiMode: "gemini",
+        aiMode: this.currentProvider.name as AIMode,
       };
     } catch (error) {
-      console.error("❌ Gemini error:", error);
+      console.error("❌ Error generating AI response:", error);
 
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      // Fallback to pattern matching
+      if (this.currentProvider.name !== "pattern") {
+        console.log("🔄 Falling back to pattern matching...");
+        const fallbackProvider = PROVIDERS.pattern;
+        const portfolioContext = this.buildPortfolioContext();
 
-      // Check for specific quota errors
-      if (errorMessage.includes("429") || errorMessage.includes("quota")) {
-        throw new Error(
-          "Gemini API quota exceeded. Please wait a few minutes and try again, or check your billing settings at https://ai.dev/usage"
-        );
+        try {
+          const content = await fallbackProvider.generateResponse(
+            query,
+            intent,
+            portfolioContext
+          );
+
+          return {
+            id,
+            type: "assistant",
+            content: `I encountered an issue with ${this.currentProvider.displayName}. Here's what I found: ${content}`,
+            timestamp,
+            aiMode: "pattern",
+          };
+        } catch (fallbackError) {
+          console.error("❌ Fallback also failed:", fallbackError);
+        }
       }
 
-      // Check for model not found errors
-      if (errorMessage.includes("404") || errorMessage.includes("not found")) {
-        throw new Error(
-          "Gemini model not available. The AI service will fall back to pattern matching."
-        );
-      }
-
-      throw error;
+      // Ultimate fallback
+      return {
+        id,
+        type: "assistant",
+        content:
+          "I'm having trouble processing your request right now. Please try again.",
+        timestamp,
+        aiMode: "pattern",
+      };
     }
   }
 
@@ -221,200 +186,6 @@ ${assets
 
 ALLOCATION:
 - Stocks: 65.2%, ETFs: 15.6%, Crypto: 17.8%, Cash: 1.4%`;
-  }
-
-  private generatePatternBasedResponse(
-    intent: QueryIntent,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    switch (intent.category) {
-      case "performance":
-        return this.generatePerformanceResponse(intent, id, timestamp);
-      case "assets":
-        return this.generateAssetsResponse(intent, id, timestamp);
-      case "allocation":
-        return this.generateAllocationResponse(intent, id, timestamp);
-      case "general":
-        return this.generateGeneralResponse(intent, id, timestamp);
-      default:
-        return {
-          id,
-          type: "assistant",
-          content:
-            "I can help you analyze your portfolio performance, view your assets, understand allocation, or answer general questions. What would you like to know?",
-          timestamp,
-        };
-    }
-  }
-
-  private generatePerformanceResponse(
-    intent: QueryIntent,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    const summary = mockPortfolioSummary;
-
-    if (intent.timeframe === "day") {
-      return {
-        id,
-        type: "assistant",
-        content: `Your portfolio had a ${
-          summary.dayChangePercent >= 0 ? "positive" : "negative"
-        } day with a change of $${summary.dayChange.toLocaleString()} (${
-          summary.dayChangePercent
-        }%). ${
-          summary.dayChangePercent >= 0
-            ? "Nice gains today! 📈"
-            : "A bit down today, but that's normal market movement. 📊"
-        }`,
-        timestamp,
-      };
-    }
-
-    if (intent.timeframe === "week") {
-      return {
-        id,
-        type: "assistant",
-        content: `This week your portfolio ${
-          summary.weekChangePercent >= 0 ? "gained" : "lost"
-        } $${Math.abs(summary.weekChange).toLocaleString()} (${
-          summary.weekChangePercent
-        }%). ${
-          summary.weekChangePercent >= 2
-            ? "Great weekly performance! 🚀"
-            : summary.weekChangePercent >= 0
-            ? "Solid week overall! 📊"
-            : "Weekly dip, but stay focused on long-term trends. 📉"
-        }`,
-        timestamp,
-      };
-    }
-
-    if (intent.timeframe === "month") {
-      return {
-        id,
-        type: "assistant",
-        content: `Your monthly performance shows a ${
-          summary.monthChangePercent >= 0 ? "gain" : "loss"
-        } of $${Math.abs(summary.monthChange).toLocaleString()} (${
-          summary.monthChangePercent
-        }%). ${
-          summary.monthChangePercent >= 5
-            ? "Excellent monthly returns! 🎉"
-            : summary.monthChangePercent >= 0
-            ? "Positive monthly trend! 📈"
-            : "Monthly pullback - consider this normal market volatility. 📊"
-        }`,
-        timestamp,
-      };
-    }
-
-    // Overall performance
-    return {
-      id,
-      type: "assistant",
-      content: `Your portfolio is currently valued at $${summary.totalValue.toLocaleString()} with total unrealized P&L of $${summary.totalUnrealizedPnL.toLocaleString()} (${
-        summary.totalUnrealizedPnLPercent
-      }%). ${
-        summary.totalUnrealizedPnLPercent >= 10
-          ? "Outstanding overall performance! 🌟"
-          : summary.totalUnrealizedPnLPercent >= 0
-          ? "Your portfolio is in positive territory! 📊"
-          : "Currently showing some unrealized losses, which is normal in volatile markets. 📉"
-      }`,
-      timestamp,
-    };
-  }
-
-  private generateAssetsResponse(
-    intent: QueryIntent,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    const assets = mockAssets;
-
-    if (intent.specificAsset) {
-      const asset = assets.find((a) =>
-        a.symbol.toLowerCase().includes(intent.specificAsset!.toLowerCase())
-      );
-
-      if (asset) {
-        return {
-          id,
-          type: "assistant",
-          content: `${asset.symbol} (${asset.name}): You own ${
-            asset.quantity
-          } shares at $${asset.currentPrice} each. Current value: $${(
-            asset.quantity * asset.currentPrice
-          ).toLocaleString()} with P&L of $${asset.unrealizedPnL} (${
-            asset.unrealizedPnLPercent
-          }%). ${
-            asset.unrealizedPnLPercent >= 5
-              ? "Strong performer! 🚀"
-              : asset.unrealizedPnLPercent >= 0
-              ? "Looking good! 📈"
-              : "Currently down, but holding steady. 📊"
-          }`,
-          timestamp,
-        };
-      } else {
-        return {
-          id,
-          type: "assistant",
-          content: `I don't see ${
-            intent.specificAsset
-          } in your current portfolio. Your holdings include: ${assets
-            .map((a) => a.symbol)
-            .join(", ")}.`,
-          timestamp,
-        };
-      }
-    }
-
-    // General assets overview
-    const topPerformer = assets.reduce((max, asset) =>
-      asset.unrealizedPnLPercent > max.unrealizedPnLPercent ? asset : max
-    );
-
-    return {
-      id,
-      type: "assistant",
-      content: `You hold ${assets.length} different positions. Your top performer is ${topPerformer.symbol} with a ${topPerformer.unrealizedPnLPercent}% gain ($${topPerformer.unrealizedPnL}). Your portfolio spans technology, finance, and cryptocurrency sectors. 📊`,
-      timestamp,
-    };
-  }
-
-  private generateAllocationResponse(
-    intent: QueryIntent,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    return {
-      id,
-      type: "assistant",
-      content: `Your portfolio allocation: 65.2% in individual stocks (like AAPL, GOOGL, TSLA), 15.6% in ETFs (SPY, VTI), 17.8% in cryptocurrency (BTC, ETH), and 1.4% in cash. You have a growth-focused allocation with good diversification across asset classes. 📊`,
-      timestamp,
-    };
-  }
-
-  private generateGeneralResponse(
-    intent: QueryIntent,
-    id: string,
-    timestamp: Date
-  ): ChatMessage {
-    const responses = [
-      "Your portfolio looks well-diversified across technology, finance, and crypto sectors. The mix of individual stocks and ETFs provides good balance. 📊",
-      "I can help you analyze performance trends, review specific holdings, or break down your asset allocation. What interests you most? 🤔",
-      "Your portfolio shows active management with positions in growth stocks, stable ETFs, and some cryptocurrency exposure. Nice diversification! 📈",
-    ];
-
-    return {
-      id,
-      type: "assistant",
-      content: responses[Math.floor(Math.random() * responses.length)],
-      timestamp,
-    };
   }
 
   /**

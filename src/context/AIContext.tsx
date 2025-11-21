@@ -2,25 +2,33 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-export type AIMode = 'pattern' | 'gemini';
+export type AIMode = 'pattern' | 'gemini' | 'openai' | 'restapi';
 
 interface AIContextType {
   aiMode: AIMode;
   setAIMode: (mode: AIMode) => void;
   isGeminiConfigured: boolean;
+  isOpenAIConfigured: boolean;
+  isRestAPIConfigured: boolean;
 }
 
 const AIContext = createContext<AIContextType | undefined>(undefined);
 
 export function AIProvider({ children }: { children: ReactNode }) {
-  const [aiMode, setAIMode] = useState<AIMode>(
-    (process.env.NEXT_PUBLIC_AI_MODE as AIMode) || 'pattern'
-  );
+  const [aiMode, setAIMode] = useState<AIMode>('gemini');
   
   const isGeminiConfigured = !!process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const isOpenAIConfigured = !!process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  const isRestAPIConfigured = !!process.env.NEXT_PUBLIC_REST_API_URL;
 
   return (
-    <AIContext.Provider value={{ aiMode, setAIMode, isGeminiConfigured }}>
+    <AIContext.Provider value={{ 
+      aiMode, 
+      setAIMode, 
+      isGeminiConfigured,
+      isOpenAIConfigured,
+      isRestAPIConfigured
+    }}>
       {children}
     </AIContext.Provider>
   );
