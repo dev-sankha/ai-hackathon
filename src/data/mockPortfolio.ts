@@ -7,6 +7,44 @@ import {
 } from "@/types";
 
 export const mockAssets: Asset[] = [
+  // Indian Stocks - Adding TCS and other major Indian companies
+  {
+    symbol: "TCS",
+    name: "Tata Consultancy Services",
+    quantity: 100,
+    avgCost: 3245.5,
+    currentPrice: 4127.8,
+    unrealizedPnL: 88230.0,
+    unrealizedPnLPercent: 27.2,
+    marketValue: 412780.0,
+    sector: "Information Technology",
+    assetType: "stock",
+  },
+  {
+    symbol: "RELIANCE",
+    name: "Reliance Industries Ltd",
+    quantity: 50,
+    avgCost: 2340.75,
+    currentPrice: 2856.9,
+    unrealizedPnL: 25807.5,
+    unrealizedPnLPercent: 22.0,
+    marketValue: 142845.0,
+    sector: "Energy",
+    assetType: "stock",
+  },
+  {
+    symbol: "INFY",
+    name: "Infosys Limited",
+    quantity: 80,
+    avgCost: 1456.2,
+    currentPrice: 1789.45,
+    unrealizedPnL: 26660.0,
+    unrealizedPnLPercent: 22.9,
+    marketValue: 143156.0,
+    sector: "Information Technology",
+    assetType: "stock",
+  },
+
   // Large Cap Technology Stocks
   {
     symbol: "AAPL",
