@@ -6,18 +6,6 @@ import {
   PerformanceData,
 } from "@/types";
 
-export const mockPortfolioSummary: PortfolioSummary = {
-  totalValue: 487650.42,
-  totalUnrealizedPnL: 72850.67,
-  totalUnrealizedPnLPercent: 17.5,
-  dayChange: -2134.56,
-  dayChangePercent: -0.43,
-  weekChange: 5456.78,
-  weekChangePercent: 1.12,
-  monthChange: 12765.43,
-  monthChangePercent: 2.69,
-};
-
 export const mockAssets: Asset[] = [
   // Large Cap Technology Stocks
   {
@@ -432,16 +420,101 @@ export const mockAssets: Asset[] = [
   },
 ];
 
-// Asset Allocation based on current portfolio
-export const mockAssetAllocation: AssetAllocation = {
-  stocks: 58.2, // Individual stocks
-  etfs: 28.4, // All ETFs combined
-  bonds: 0.0, // No bonds in current portfolio
-  crypto: 4.8, // Cryptocurrency holdings
-  reits: 3.6, // REIT holdings
-  commodities: 1.7, // Gold/Silver ETFs
-  cash: 3.3, // Cash position
+// Calculate portfolio summary from assets data
+const calculatePortfolioSummary = (): PortfolioSummary => {
+  const totalValue = mockAssets.reduce(
+    (sum, asset) => sum + asset.marketValue,
+    0
+  );
+  const totalUnrealizedPnL = mockAssets.reduce(
+    (sum, asset) => sum + asset.unrealizedPnL,
+    0
+  );
+  const totalUnrealizedPnLPercent =
+    (totalUnrealizedPnL / (totalValue - totalUnrealizedPnL)) * 100;
+
+  // Generate realistic daily/weekly/monthly changes based on portfolio size
+  // These would normally come from historical data, but we'll simulate them
+  const dayChange = totalValue * (Math.random() * 0.02 - 0.01); // ±1% daily variation
+  const weekChange = totalValue * (Math.random() * 0.05 + 0.005); // 0.5-5.5% weekly gain
+  const monthChange = totalValue * (Math.random() * 0.08 + 0.01); // 1-9% monthly gain
+
+  return {
+    totalValue: Math.round(totalValue * 100) / 100,
+    totalUnrealizedPnL: Math.round(totalUnrealizedPnL * 100) / 100,
+    totalUnrealizedPnLPercent:
+      Math.round(totalUnrealizedPnLPercent * 100) / 100,
+    dayChange: Math.round(dayChange * 100) / 100,
+    dayChangePercent: Math.round((dayChange / totalValue) * 10000) / 100,
+    weekChange: Math.round(weekChange * 100) / 100,
+    weekChangePercent: Math.round((weekChange / totalValue) * 10000) / 100,
+    monthChange: Math.round(monthChange * 100) / 100,
+    monthChangePercent: Math.round((monthChange / totalValue) * 10000) / 100,
+  };
 };
+
+export const mockPortfolioSummary: PortfolioSummary =
+  calculatePortfolioSummary();
+
+// Asset Allocation calculated from current portfolio
+const calculateAssetAllocation = (): AssetAllocation => {
+  const totalValue = mockAssets.reduce(
+    (sum, asset) => sum + asset.marketValue,
+    0
+  );
+
+  const stocks = mockAssets
+    .filter(
+      (asset) =>
+        asset.assetType === "stock" ||
+        (!asset.assetType &&
+          asset.sector !== "ETF" &&
+          asset.sector !== "Cryptocurrency" &&
+          asset.sector !== "REIT" &&
+          asset.sector !== "Commodities")
+    )
+    .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+  const etfs = mockAssets
+    .filter((asset) => asset.assetType === "etf" || asset.sector === "ETF")
+    .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+  const crypto = mockAssets
+    .filter(
+      (asset) =>
+        asset.assetType === "crypto" || asset.sector === "Cryptocurrency"
+    )
+    .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+  const reits = mockAssets
+    .filter((asset) => asset.sector === "REIT")
+    .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+  const commodities = mockAssets
+    .filter((asset) => asset.sector === "Commodities")
+    .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+  // Assume 3% cash position
+  const cash = 3.0;
+  const nonCashTotal =
+    ((stocks + etfs + crypto + reits + commodities) / totalValue) * 100;
+  const adjustmentFactor = (100 - cash) / nonCashTotal;
+
+  return {
+    stocks:
+      Math.round((stocks / totalValue) * 100 * adjustmentFactor * 10) / 10,
+    etfs: Math.round((etfs / totalValue) * 100 * adjustmentFactor * 10) / 10,
+    bonds: 0.0,
+    crypto:
+      Math.round((crypto / totalValue) * 100 * adjustmentFactor * 10) / 10,
+    reits: Math.round((reits / totalValue) * 100 * adjustmentFactor * 10) / 10,
+    commodities:
+      Math.round((commodities / totalValue) * 100 * adjustmentFactor * 10) / 10,
+    cash: cash,
+  };
+};
+
+export const mockAssetAllocation: AssetAllocation = calculateAssetAllocation();
 
 // Mock transaction history
 export const mockTransactions: Transaction[] = [
@@ -530,26 +603,34 @@ export const mockTransactions: Transaction[] = [
 // Generate performance history data
 export const generatePerformanceHistory = (days: number): PerformanceData[] => {
   const data: PerformanceData[] = [];
-  const baseValue = 414800; // Starting value 30 days ago
-  let currentValue = baseValue;
+  const currentValue = mockPortfolioSummary.totalValue;
+  const baseValue = currentValue - mockPortfolioSummary.monthChange; // Starting value 30 days ago
+  let runningValue = baseValue;
 
   for (let i = days; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
 
-    // Simulate market volatility with some upward trend
-    const randomChange = (Math.random() - 0.5) * 0.03; // ±1.5% daily volatility
-    const trendComponent = (days - i) * 0.0006; // Gradual upward trend
-    const totalChange = randomChange + trendComponent;
+    // Simulate market volatility with upward trend to reach current value
+    const remainingDays = i;
+    const targetGrowth = (currentValue - baseValue) / baseValue;
+    const dailyTrendComponent = remainingDays > 0 ? targetGrowth / days : 0;
+    const randomComponent = (Math.random() - 0.5) * 0.025; // ±1.25% daily volatility
+    const totalChange = dailyTrendComponent + randomComponent;
 
-    currentValue = currentValue * (1 + totalChange);
+    if (i === 0) {
+      // Ensure we end at the exact current value
+      runningValue = currentValue;
+    } else {
+      runningValue = runningValue * (1 + totalChange);
+    }
 
     const dayReturn = totalChange * 100;
-    const cumulativeReturn = ((currentValue - baseValue) / baseValue) * 100;
+    const cumulativeReturn = ((runningValue - baseValue) / baseValue) * 100;
 
     data.push({
       date: date.toISOString().split("T")[0],
-      portfolioValue: Math.round(currentValue * 100) / 100,
+      portfolioValue: Math.round(runningValue * 100) / 100,
       dayReturn: Math.round(dayReturn * 100) / 100,
       cumulativeReturn: Math.round(cumulativeReturn * 100) / 100,
     });
@@ -560,23 +641,15 @@ export const generatePerformanceHistory = (days: number): PerformanceData[] => {
 
 export const mockPerformanceHistory = generatePerformanceHistory(30);
 
-// Calculate totals for verification
-const calculatedTotalValue = mockAssets.reduce(
-  (sum, asset) => sum + asset.marketValue,
-  0
-);
-const calculatedTotalPnL = mockAssets.reduce(
-  (sum, asset) => sum + asset.unrealizedPnL,
-  0
-);
-
-// Ensure our mock data is consistent
-console.log("Mock Portfolio Verification:");
-console.log(`Total Market Value: $${calculatedTotalValue.toLocaleString()}`);
-console.log(`Total P&L: $${calculatedTotalPnL.toLocaleString()}`);
+// Verification - all values are now calculated dynamically
+console.log("📊 Portfolio Data Verification:");
 console.log(
-  `Summary Total Value: $${mockPortfolioSummary.totalValue.toLocaleString()}`
+  `Total Market Value: $${mockPortfolioSummary.totalValue.toLocaleString()}`
 );
 console.log(
-  `Summary Total P&L: $${mockPortfolioSummary.totalUnrealizedPnL.toLocaleString()}`
+  `Total P&L: $${mockPortfolioSummary.totalUnrealizedPnL.toLocaleString()} (${
+    mockPortfolioSummary.totalUnrealizedPnLPercent
+  }%)`
 );
+console.log(`Asset Allocation:`, mockAssetAllocation);
+console.log("✅ All values calculated from mock assets data");
