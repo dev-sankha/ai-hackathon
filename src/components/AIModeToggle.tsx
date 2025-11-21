@@ -16,13 +16,6 @@ export default function AIModeToggle() {
 
   const providers = [
     { 
-      id: 'pattern' as AIMode, 
-      name: 'Pattern', 
-      fullName: 'Pattern Matching',
-      configured: true,
-      color: 'blue'
-    },
-    { 
       id: 'gemini' as AIMode, 
       name: 'Gemini', 
       fullName: 'Google Gemini',
@@ -102,18 +95,6 @@ export default function AIModeToggle() {
           <h4 className="font-medium text-gray-900 mb-3">AI Provider Setup</h4>
           
           <div className="space-y-4 text-sm">
-            {/* Pattern Matching */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 bg-blue-600 rounded"></div>
-                <span className="font-medium">Pattern Matching</span>
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">READY</span>
-              </div>
-              <p className="text-gray-600 text-xs pl-5">
-                Rule-based responses. Always available, no setup needed.
-              </p>
-            </div>
-            
             {/* Google Gemini */}
             <div>
               <div className="flex items-center gap-2 mb-1">

@@ -4,7 +4,6 @@ import {
   AIProvider,
   GeminiProvider,
   OpenAIProvider,
-  PatternProvider,
   RestAPIProvider,
 } from "./ai-providers";
 
@@ -13,13 +12,12 @@ const PROVIDERS: Record<string, AIProvider> = {
   gemini: new GeminiProvider(),
   openai: new OpenAIProvider(),
   restapi: new RestAPIProvider(),
-  pattern: new PatternProvider(),
 };
 
 // Set your default provider here
 const DEFAULT_PROVIDER = "gemini";
 
-export type AIMode = "gemini" | "openai" | "restapi" | "pattern";
+export type AIMode = "gemini" | "openai" | "restapi";
 
 export class AIService {
   private currentProvider: AIProvider;
@@ -88,9 +86,15 @@ export class AIService {
       // Check if provider is configured
       if (!this.currentProvider.isConfigured()) {
         console.warn(
-          `⚠️ ${this.currentProvider.displayName} not configured, falling back to Pattern Matching`
+          `⚠️ ${this.currentProvider.displayName} not configured, falling back to Gemini`
         );
-        this.currentProvider = PROVIDERS.pattern;
+        if (PROVIDERS.gemini?.isConfigured()) {
+          this.currentProvider = PROVIDERS.gemini;
+        } else {
+          throw new Error(
+            `${this.currentProvider.displayName} not configured and no fallback available`
+          );
+        }
       }
 
       // Build portfolio context
@@ -116,10 +120,13 @@ export class AIService {
     } catch (error) {
       console.error("❌ Error generating AI response:", error);
 
-      // Fallback to pattern matching
-      if (this.currentProvider.name !== "pattern") {
-        console.log("🔄 Falling back to pattern matching...");
-        const fallbackProvider = PROVIDERS.pattern;
+      // Fallback to Gemini if current provider fails
+      if (
+        this.currentProvider.name !== "gemini" &&
+        PROVIDERS.gemini?.isConfigured()
+      ) {
+        console.log("🔄 Falling back to Gemini...");
+        const fallbackProvider = PROVIDERS.gemini;
         const portfolioContext = this.buildPortfolioContext();
 
         try {
@@ -132,12 +139,12 @@ export class AIService {
           return {
             id,
             type: "assistant",
-            content: `I encountered an issue with ${this.currentProvider.displayName}. Here's what I found: ${content}`,
+            content: `I encountered an issue with ${this.currentProvider.displayName}. Here's what I found using Gemini: ${content}`,
             timestamp,
-            aiMode: "pattern",
+            aiMode: "gemini",
           };
         } catch (fallbackError) {
-          console.error("❌ Fallback also failed:", fallbackError);
+          console.error("❌ Gemini fallback also failed:", fallbackError);
         }
       }
 
@@ -146,9 +153,9 @@ export class AIService {
         id,
         type: "assistant",
         content:
-          "I'm having trouble processing your request right now. Please try again.",
+          "I'm having trouble processing your request right now. Please check your AI provider configuration and try again.",
         timestamp,
-        aiMode: "pattern",
+        aiMode: this.currentProvider.name as AIMode,
       };
     }
   }

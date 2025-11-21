@@ -3,7 +3,7 @@ export interface ChatMessage {
   type: "user" | "assistant";
   content: string;
   timestamp: Date;
-  aiMode?: "pattern" | "gemini" | "openai" | "restapi";
+  aiMode?: "gemini" | "openai" | "restapi";
 }
 
 export interface QueryIntent {

@@ -25,7 +25,7 @@ export default function ChatInterface() {
       {
         id: 'initial-0',
         type: 'assistant',
-        content: `Hi! I'm your AI portfolio assistant. Ask me about your performance, top gainers, asset allocation, or any other portfolio questions.\n\nCurrently using: ${aiMode === 'pattern' ? 'Pattern Matching' : 'Google Gemini'} mode.`,
+        content: `Hi! I'm your AI portfolio assistant. Ask me about your performance, top gainers, asset allocation, or any other portfolio questions.\n\nCurrently using: ${aiMode === 'gemini' ? 'Google Gemini' : aiMode === 'openai' ? 'OpenAI GPT' : 'REST API'} mode.`,
         timestamp: new Date()
       }
     ]);

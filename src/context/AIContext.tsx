@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-export type AIMode = 'pattern' | 'gemini' | 'openai' | 'restapi';
+export type AIMode = 'gemini' | 'openai' | 'restapi';
 
 interface AIContextType {
   aiMode: AIMode;
